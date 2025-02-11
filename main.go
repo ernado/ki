@@ -405,139 +405,6 @@ func ConfigureContainerd() error {
 	return nil
 }
 
-func run() error {
-	var arg struct {
-		Version string
-	}
-	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
-	flag.Parse()
-
-	// 0. Check OS.
-	release, err := lsbRelease()
-	if err != nil {
-		return errors.Wrap(err, "lsb_release")
-	}
-	fmt.Println("> OS release:", release)
-	supported := map[string]struct{}{
-		"noble": {},
-	}
-	if _, ok := supported[release]; !ok {
-		return errors.Errorf("unsupported OS: %s", release)
-	}
-	defaultGateway, err := GetDefaultGatewayIP()
-	if err != nil {
-		return errors.Wrap(err, "get default gateway")
-	}
-	fmt.Println("> Default gateway:", defaultGateway)
-	// Check required ports
-	if err := CheckTCPPortIsFree(6443); err != nil {
-		return errors.Wrap(err, "check k8s port")
-	}
-	if err := InstallBinary(Binary{
-		Name:   "helm",
-		URL:    "https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz",
-		SHA256: "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
-	}); err != nil {
-		return errors.Wrap(err, "install helm")
-	}
-	// Swap configuration
-	if err := DisableSwap(); err != nil {
-		return errors.Wrap(err, "disable swap")
-	}
-	//  Update apt cache
-	if err := APTUpdate(); err != nil {
-		return errors.Wrap(err, "apt update")
-	}
-	//  Upgrade packages
-	if err := APTUpgrade(); err != nil {
-		return errors.Wrap(err, "apt upgrade")
-	}
-	// Installing a container runtime.
-	if err := LoadKernelModules("containerd", "overlay", "br_netfilter"); err != nil {
-		return errors.Wrap(err, "load kernel modules")
-	}
-	if err := ConfigureKernelParameters("kubernetes", map[string]any{
-		"net.bridge.bridge-nf-call-ip6tables": 1,
-		"net.bridge.bridge-nf-call-iptables":  1,
-		"net.ipv4.ip_forward":                 1,
-	}); err != nil {
-		return errors.Wrap(err, "configure kernel parameters")
-	}
-	fmt.Println("> Installing containerd")
-	if err := APTInstall("curl", "gnupg2", "software-properties-common", "apt-transport-https", "ca-certificates"); err != nil {
-		return errors.Wrap(err, "install containerd dependencies")
-	}
-	if err := APTKey("docker", "https://download.docker.com/linux/ubuntu/gpg"); err != nil {
-		return errors.Wrap(err, "add docker key")
-	}
-	if err := APTAddRepo(APTAddRepoOptions{
-		Name:       "docker",
-		URL:        "https://download.docker.com/linux/ubuntu",
-		SignedBy:   "/etc/apt/trusted.gpg.d/docker.gpg",
-		Arch:       []string{"amd64"},
-		Components: []string{release, "stable"},
-	}); err != nil {
-		return errors.Wrap(err, "add docker repo")
-	}
-	if err := APTUpdate(); err != nil {
-		return errors.Wrap(err, "apt update")
-	}
-	if err := APTInstall("curl", "containerd.io"); err != nil {
-		return errors.Wrap(err, "install containerd")
-	}
-	if err := ConfigureContainerd(); err != nil {
-		return errors.Wrap(err, "configure containerd")
-	}
-	// Install k8s
-	fmt.Println("> Installing k8s")
-	if err := APTKey("k8s", "https://pkgs.k8s.io/core:/stable:/"+arg.Version+"/deb/Release.key"); err != nil {
-		return errors.Wrap(err, "add k8s key")
-	}
-	if err := APTAddRepo(APTAddRepoOptions{
-		Name:       "k8s",
-		URL:        "https://pkgs.k8s.io/core:/stable:/" + arg.Version + "/deb/",
-		SignedBy:   "/etc/apt/keyrings/k8s.gpg",
-		Components: []string{"/"},
-	}); err != nil {
-		return errors.Wrap(err, "add k8s repo")
-	}
-	if err := APTUpdate(); err != nil {
-		return errors.Wrap(err, "apt update")
-	}
-	if err := APTInstall("kubeadm", "kubelet", "kubectl"); err != nil {
-		return errors.Wrap(err, "install k8s")
-	}
-	if err := APTHold("kubeadm", "kubelet", "kubectl"); err != nil {
-		return errors.Wrap(err, "hold k8s")
-	}
-	// 6. Enable and start kubelet
-	fmt.Println("> Starting kubelet")
-	if err := Systemctl("enable", "kubelet"); err != nil {
-		return errors.Wrap(err, "enable kubelet")
-	}
-	if err := Systemctl("start", "kubelet"); err != nil {
-		return errors.Wrap(err, "start kubelet")
-	}
-	// 7. Initialize k8s
-	fmt.Println("> Initializing k8s")
-	if err := KubeadmInit(KubeadmInitOptions{
-		SkipPhases:           []string{"addon/kube-proxy"},
-		PodNetworkCIDR:       "10.244.0.0/16",
-		ServiceCIDR:          "10.96.0.0/16",
-		ControlPlaneEndpoint: defaultGateway,
-	}); err != nil {
-		return errors.Wrap(err, "kubeadm init")
-	}
-	if err := CiliumInstall(CiliumInstallOptions{
-		Version:        "1.17.0",
-		K8sServiceHost: defaultGateway,
-	}); err != nil {
-		return errors.Wrap(err, "cilium install")
-	}
-
-	return nil
-}
-
 type Binary struct {
 	URL    string
 	Name   string
@@ -683,6 +550,139 @@ func GetDefaultGatewayIP() (string, error) {
 		}
 	}
 	return "", errors.New("default gateway not found")
+}
+
+func run() error {
+	var arg struct {
+		Version string
+	}
+	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
+	flag.Parse()
+
+	// 0. Check OS.
+	release, err := lsbRelease()
+	if err != nil {
+		return errors.Wrap(err, "lsb_release")
+	}
+	fmt.Println("> OS release:", release)
+	supported := map[string]struct{}{
+		"noble": {},
+	}
+	if _, ok := supported[release]; !ok {
+		return errors.Errorf("unsupported OS: %s", release)
+	}
+	defaultGateway, err := GetDefaultGatewayIP()
+	if err != nil {
+		return errors.Wrap(err, "get default gateway")
+	}
+	fmt.Println("> Default gateway:", defaultGateway)
+	// Check required ports
+	if err := CheckTCPPortIsFree(6443); err != nil {
+		return errors.Wrap(err, "check k8s port")
+	}
+	if err := InstallBinary(Binary{
+		Name:   "helm",
+		URL:    "https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz",
+		SHA256: "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
+	}); err != nil {
+		return errors.Wrap(err, "install helm")
+	}
+	// Swap configuration
+	if err := DisableSwap(); err != nil {
+		return errors.Wrap(err, "disable swap")
+	}
+	//  Update apt cache
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	//  Upgrade packages
+	if err := APTUpgrade(); err != nil {
+		return errors.Wrap(err, "apt upgrade")
+	}
+	// Installing a container runtime.
+	if err := LoadKernelModules("containerd", "overlay", "br_netfilter"); err != nil {
+		return errors.Wrap(err, "load kernel modules")
+	}
+	if err := ConfigureKernelParameters("kubernetes", map[string]any{
+		"net.bridge.bridge-nf-call-ip6tables": 1,
+		"net.bridge.bridge-nf-call-iptables":  1,
+		"net.ipv4.ip_forward":                 1,
+	}); err != nil {
+		return errors.Wrap(err, "configure kernel parameters")
+	}
+	fmt.Println("> Installing containerd")
+	if err := APTInstall("curl", "gnupg2", "software-properties-common", "apt-transport-https", "ca-certificates"); err != nil {
+		return errors.Wrap(err, "install containerd dependencies")
+	}
+	if err := APTKey("docker", "https://download.docker.com/linux/ubuntu/gpg"); err != nil {
+		return errors.Wrap(err, "add docker key")
+	}
+	if err := APTAddRepo(APTAddRepoOptions{
+		Name:       "docker",
+		URL:        "https://download.docker.com/linux/ubuntu",
+		SignedBy:   "/etc/apt/trusted.gpg.d/docker.gpg",
+		Arch:       []string{"amd64"},
+		Components: []string{release, "stable"},
+	}); err != nil {
+		return errors.Wrap(err, "add docker repo")
+	}
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	if err := APTInstall("curl", "containerd.io"); err != nil {
+		return errors.Wrap(err, "install containerd")
+	}
+	if err := ConfigureContainerd(); err != nil {
+		return errors.Wrap(err, "configure containerd")
+	}
+	// Install k8s
+	fmt.Println("> Installing k8s")
+	if err := APTKey("k8s", "https://pkgs.k8s.io/core:/stable:/"+arg.Version+"/deb/Release.key"); err != nil {
+		return errors.Wrap(err, "add k8s key")
+	}
+	if err := APTAddRepo(APTAddRepoOptions{
+		Name:       "k8s",
+		URL:        "https://pkgs.k8s.io/core:/stable:/" + arg.Version + "/deb/",
+		SignedBy:   "/etc/apt/keyrings/k8s.gpg",
+		Components: []string{"/"},
+	}); err != nil {
+		return errors.Wrap(err, "add k8s repo")
+	}
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	if err := APTInstall("kubeadm", "kubelet", "kubectl"); err != nil {
+		return errors.Wrap(err, "install k8s")
+	}
+	if err := APTHold("kubeadm", "kubelet", "kubectl"); err != nil {
+		return errors.Wrap(err, "hold k8s")
+	}
+	// 6. Enable and start kubelet
+	fmt.Println("> Starting kubelet")
+	if err := Systemctl("enable", "kubelet"); err != nil {
+		return errors.Wrap(err, "enable kubelet")
+	}
+	if err := Systemctl("start", "kubelet"); err != nil {
+		return errors.Wrap(err, "start kubelet")
+	}
+	// 7. Initialize k8s
+	fmt.Println("> Initializing k8s")
+	if err := KubeadmInit(KubeadmInitOptions{
+		SkipPhases:           []string{"addon/kube-proxy"},
+		PodNetworkCIDR:       "10.244.0.0/16",
+		ServiceCIDR:          "10.96.0.0/16",
+		ControlPlaneEndpoint: defaultGateway,
+	}); err != nil {
+		return errors.Wrap(err, "kubeadm init")
+	}
+	if err := CiliumInstall(CiliumInstallOptions{
+		Version:        "1.17.0",
+		K8sServiceHost: defaultGateway,
+	}); err != nil {
+		return errors.Wrap(err, "cilium install")
+	}
+
+	return nil
 }
 
 func main() {
