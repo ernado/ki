@@ -71,6 +71,18 @@ func APTUpdate() error {
 	return nil
 }
 
+func APTInstall(packages ...string) error {
+	fmt.Println("> apt-get install", packages)
+	cmd := exec.Command("apt-get", append([]string{"install", "-y"}, packages...)...)
+	cmd.Env = appendEnv(os.Environ(), "DEBIAN_FRONTEND", "noninteractive")
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "apt install")
+	}
+	return nil
+}
+
 func CheckTCPPortIsFree(n int) error {
 	// nc 127.0.0.1 6443 -v
 	// ^ should fail, but in go.
@@ -161,6 +173,10 @@ func run() error {
 		"net.ipv4.ip_forward":                 1,
 	}); err != nil {
 		return errors.Wrap(err, "configure kernel parameters")
+	}
+	fmt.Println("> Installing containerd")
+	if err := APTInstall("curl", "gnupg2", "software-properties-common", "apt-transport-https", "ca-certificates"); err != nil {
+		return errors.Wrap(err, "install containerd dependencies")
 	}
 	return nil
 }
