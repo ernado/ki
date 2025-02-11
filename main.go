@@ -93,7 +93,7 @@ func CiliumInstall(opt CiliumInstallOptions) error {
 		CreateNamespace: true,
 		Chart:           "cilium/cilium",
 		Values:          fileName,
-		KubeConfig:      "/etc/kubernetes/admin.conf",
+		KubeConfig:      kubeConfig,
 	}); err != nil {
 		return errors.Wrap(err, "helm upgrade")
 	}
@@ -131,6 +131,8 @@ func ConfigureContainerd() error {
 
 const serviceMonitorCRD = "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/" +
 	"main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml"
+
+const kubeConfig = "/etc/kubernetes/admin.conf"
 
 func run() error {
 	var arg struct {
@@ -279,7 +281,10 @@ func run() error {
 		return errors.Wrap(err, "kubeadm init")
 	}
 	// Install cilium.
-	if err := KubectlApply(serviceMonitorCRD); err != nil {
+	if err := KubectlApply(KubectlApplyOptions{
+		File:       serviceMonitorCRD,
+		Kubeconfig: kubeConfig,
+	}); err != nil {
 		return errors.Wrap(err, "kubectl apply service monitor CRD")
 	}
 	fmt.Println("> Installing cilium")
