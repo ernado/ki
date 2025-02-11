@@ -11,4 +11,9 @@ This can be done in Ansible, but I'm doing it myself in Go.
 
 ## What it should do
 
-- Disable swap
+- [x] Disable swap
+- [x] Configure kernel modules and parameters
+- [x] Install conteinerd
+- [x] Install kubelet, kubeadm, kubectl
+- [ ] Initialize the cluster
+- [ ] Install a CNI
