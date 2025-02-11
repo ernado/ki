@@ -103,6 +103,17 @@ func APTInstall(packages ...string) error {
 	return nil
 }
 
+func APTHold(packages ...string) error {
+	fmt.Println("> apt-mark hold", packages)
+	cmd := exec.Command("apt-mark", append([]string{"hold"}, packages...)...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "apt-mark hold")
+	}
+	return nil
+}
+
 func APTKey(keyName, keyURL string) error {
 	fmt.Printf("> Adding GPG key %s\n", keyName)
 	dirName := "/etc/apt/keyrings"
@@ -386,6 +397,15 @@ func run() error {
 		Components: []string{"/"},
 	}); err != nil {
 		return errors.Wrap(err, "add k8s repo")
+	}
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	if err := APTInstall("kubeadm", "kubelet", "kubectl"); err != nil {
+		return errors.Wrap(err, "install k8s")
+	}
+	if err := APTHold("kubeadm", "kubelet", "kubectl"); err != nil {
+		return errors.Wrap(err, "hold k8s")
 	}
 	return nil
 }
