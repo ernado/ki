@@ -5,6 +5,17 @@ cluster:
   name: k8s
 encryption:
   nodeEncryption: false
+ingressController:
+  enabled: true
+  loadbalancerMode: shared
+  default: true
+  enforceHttps: false
+  hostNetwork:
+    enabled: true
+    sharedListenerPort: 8080
+  service:
+    externalTrafficPolicy: null
+    type: ClusterIP
 hubble:
   tls:
     enabled: false
@@ -36,11 +47,8 @@ nodeinit:
   restartPods: true
 
 ipam:
-  # -- Configure IP Address Management mode.
-  # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
-  mode: "kubernetes"
-
-kubeProxyReplacement: strict
+  mode: kubernetes
+kubeProxyReplacement: true
 operator:
   prometheus:
     enabled: true
@@ -51,16 +59,14 @@ prometheus:
   enabled: true
   serviceMonitor:
     enabled: true
-proxy:
-  prometheus:
-    enabled: true
-    serviceMonitor:
-      enabled: true
 serviceAccounts:
   cilium:
     name: cilium
   operator:
     name: cilium-operator
+hostServices:
+  enabled: true
+  protocols: tcp
 externalIPs:
   enabled: true
 nodePort:
@@ -69,55 +75,9 @@ hostPort:
   enabled: true
 pprof:
   enabled: true
-bpf:
-  masquerade: true
-  clockProbe: true
-  preallocateMaps: true
-  hostRouting: true
-  tproxy: true
 
-endpointRoutes:
-  # -- Enable use of per endpoint routes instead of routing via
-  # the cilium_host interface.
-  enabled: true
-
-devices: "eth0"
-
-egressGateway:
-  enabled: true
-  # -- Install egress gateway IP rules and routes in order to properly steer
-  # egress gateway traffic to the correct ENI interface
-
-bandwidthManager:
-  # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
-  enabled: true
-  # -- Activate BBR TCP congestion control for Pods
-
-localRedirectPolicy: true
-enableCiliumEndpointSlice: true
-enableK8sEventHandover: true
-enableK8sEndpointSlice: true
-
-wellKnownIdentities:
-  # -- Enable the use of well-known identities.
-  enabled: true
-
-sockops:
-  # enabled enables installation of socket options acceleration.
-  enabled: true
-
-socketLB:
-  enabled: true
-
-tunnel: geneve
-
-ingressController:
-  enabled: true
-  loadbalancerMode: shared
-  default: true
-  loadBalancer:
-    l7:
-      backend: envoy
+ipv4NativeRoutingCIDR: 10.0.0.0/8
+tunnelProtocol: vxlan
 
 k8sServiceHost: {{ $.K8sServiceHost}}
 k8sServicePort: 6443
