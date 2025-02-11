@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
 	"flag"
@@ -428,19 +429,26 @@ func run() error {
 		return errors.Wrap(err, "get default gateway")
 	}
 	fmt.Println("> Default gateway:", defaultGateway)
-	// 1. Check required ports
+	// Check required ports
 	if err := CheckTCPPortIsFree(6443); err != nil {
 		return errors.Wrap(err, "check k8s port")
 	}
-	// 2. Swap configuration
+	if err := InstallBinary(Binary{
+		Name:   "helm",
+		URL:    "https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz",
+		SHA256: "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
+	}); err != nil {
+		return errors.Wrap(err, "install helm")
+	}
+	// Swap configuration
 	if err := DisableSwap(); err != nil {
 		return errors.Wrap(err, "disable swap")
 	}
-	// 3. Update apt cache
+	//  Update apt cache
 	if err := APTUpdate(); err != nil {
 		return errors.Wrap(err, "apt update")
 	}
-	// 4. Upgrade packages
+	//  Upgrade packages
 	if err := APTUpgrade(); err != nil {
 		return errors.Wrap(err, "apt upgrade")
 	}
@@ -480,7 +488,7 @@ func run() error {
 	if err := ConfigureContainerd(); err != nil {
 		return errors.Wrap(err, "configure containerd")
 	}
-	// 5. Install k8s
+	// Install k8s
 	fmt.Println("> Installing k8s")
 	if err := APTKey("k8s", "https://pkgs.k8s.io/core:/stable:/"+arg.Version+"/deb/Release.key"); err != nil {
 		return errors.Wrap(err, "add k8s key")
@@ -527,6 +535,118 @@ func run() error {
 		return errors.Wrap(err, "cilium install")
 	}
 
+	return nil
+}
+
+type Binary struct {
+	URL    string
+	Name   string
+	SHA256 string
+}
+
+// InstallBinary installs a binary to machine.
+func InstallBinary(bin Binary) error {
+	fmt.Println("> Install binary", bin.Name)
+	targetBinaryPath := "/usr/local/bin/" + bin.Name
+	if _, err := os.Stat(targetBinaryPath); err == nil {
+		fmt.Println("> Binary already exists")
+		return nil
+	}
+	// 1. Download to tmp.
+	baseName := filepath.Base(bin.URL)
+	workDir, err := os.MkdirTemp("", "ki-dl-")
+	defer func() {
+		_ = os.RemoveAll(workDir)
+	}()
+	targetName := filepath.Join(workDir, baseName)
+	if err != nil {
+		return errors.Wrap(err, "create temp")
+	}
+	{
+		f, err := os.Create(targetName)
+		if err != nil {
+			return errors.Wrap(err, "create temp")
+		}
+		defer func() {
+			_ = f.Close()
+			_ = os.Remove(f.Name())
+		}()
+		fmt.Println("> Downloading", bin.URL)
+		res, err := http.Get(bin.URL)
+		if err != nil {
+			return errors.Wrap(err, "get")
+		}
+		defer func() {
+			_ = res.Body.Close()
+		}()
+		if res.StatusCode != http.StatusOK {
+			return errors.Errorf("bad status: %s", res.Status)
+		}
+		if _, err := io.Copy(f, res.Body); err != nil {
+			return errors.Wrap(err, "copy")
+		}
+		if err := f.Close(); err != nil {
+			return errors.Wrap(err, "close")
+		}
+	}
+	var binaryPath string
+	{
+		// Unpack.
+		fmt.Println("> Unpacking")
+		cmd := exec.Command("tar", "-xzf", baseName)
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		cmd.Dir = workDir
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "tar")
+		}
+		// Now find a binary in directory, recursively.
+		err := filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if info.Name() == bin.Name {
+				binaryPath = path
+				return io.EOF
+			}
+			return nil
+		})
+		if err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "walk")
+		}
+		if binaryPath == "" {
+			return errors.New("binary not found")
+		}
+	}
+	{
+		// 2. Check SHA256.
+		fmt.Println("> Checking SHA256")
+		h := sha256.New()
+		f, err := os.Open(targetName)
+		if err != nil {
+			return errors.Wrap(err, "open")
+		}
+		defer func() {
+			_ = f.Close()
+		}()
+		if _, err := io.Copy(h, f); err != nil {
+			return errors.Wrap(err, "copy")
+		}
+		if got := fmt.Sprintf("%x", h.Sum(nil)); got != bin.SHA256 {
+			return errors.Errorf("bad sha256: %s", got)
+		}
+		fmt.Println("> SHA256 OK")
+	}
+	// Install with chmod +x
+	cmd := exec.Command("install", "-m", "0755", binaryPath, targetBinaryPath)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "install")
+	}
 	return nil
 }
 
