@@ -3,6 +3,7 @@ package install
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/go-faster/errors"
 )
 
@@ -114,13 +116,21 @@ func KubeadmJoin(controlPlaneNodeInternalIP string) error {
 
 	var params InitParams
 	{
-		cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=accept-new", "cluster@"+controlPlaneNodeInternalIP, "sudo", "cat", initParamsPath)
-		output, err := cmd.Output()
-		if err != nil {
-			return errors.Wrap(err, "ssh")
-		}
-		if err := json.Unmarshal(output, &params); err != nil {
-			return errors.Wrap(err, "unmarshal")
+		bo := backoff.NewConstantBackOff(time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := backoff.RetryNotify(func() error {
+			cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=accept-new", "cluster@"+controlPlaneNodeInternalIP, "sudo", "cat", initParamsPath)
+			output, err := cmd.Output()
+			if err != nil {
+				return errors.Wrap(err, "ssh")
+			}
+			if err := json.Unmarshal(output, &params); err != nil {
+				return errors.Wrap(err, "unmarshal")
+			}
+			return nil
+		}, backoff.WithContext(bo, ctx), func(err error, d time.Duration) {}); err != nil {
+			return errors.Wrap(err, "retrieve config")
 		}
 	}
 	if params.Hash == "" || params.Token == "" || params.Endpoint == "" {
