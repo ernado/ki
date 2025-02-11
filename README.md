@@ -15,8 +15,10 @@ This can be done in Ansible, but I'm doing it myself in Go.
 - [x] Configure kernel modules and parameters
 - [x] Install conteinerd
 - [x] Install kubelet, kubeadm, kubectl
-- [ ] Initialize the cluster
-- [ ] Install a CNI
+- [x] Install helm, cilium
+- [x] Initialize the cluster
+- [x] Install a CNI (Cilium)
+- [ ] Joing cluster
 
 ## TODO
 
