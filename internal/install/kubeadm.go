@@ -92,12 +92,14 @@ func KubeadmInit(opts KubeadmInitOptions) error {
 
 func KubeadmJoin(controlPlaneNodeInternalIP string) error {
 	// Wait for 6443 port on control plane node.
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(time.Second)
+	fmt.Println("> Waiting for control plane node")
 	defer ticker.Stop()
 	for {
 		err := func() error {
 			conn, err := net.Dial("tcp", net.JoinHostPort(controlPlaneNodeInternalIP, "6443"))
 			if err != nil {
+				fmt.Println(err)
 				return err
 			}
 			_ = conn.Close()
