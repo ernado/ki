@@ -363,6 +363,55 @@ func HelmAddRepo(name, url string) error {
 	return nil
 }
 
+type HelmUpgradeOptions struct {
+	Version         string
+	Name            string
+	Install         bool
+	Namespace       string
+	CreateNamespace bool
+	Chart           string
+	Values          string
+	Repo            string
+	KubeConfig      string
+}
+
+func HelmUpgrade(opt HelmUpgradeOptions) error {
+	fmt.Println("> helm: installing", opt.Name, opt.Chart)
+	args := []string{
+		"upgrade",
+	}
+	if opt.Install {
+		args = append(args, "--install")
+	}
+	if opt.Repo != "" {
+		args = append(args, "--repo", opt.Repo)
+	}
+	if opt.Values != "" {
+		args = append(args, "--values", opt.Values)
+	}
+	if opt.CreateNamespace {
+		args = append(args, "--create-namespace")
+	}
+	if opt.Namespace != "" {
+		args = append(args, "--namespace", opt.Namespace)
+	}
+	if opt.Version != "" {
+		args = append(args, "--version", opt.Version)
+	}
+	args = append(args, opt.Name, opt.Chart)
+	fmt.Println("> helm upgrade", args)
+	cmd := exec.Command("helm", args...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if opt.KubeConfig != "" {
+		cmd.Env = appendEnv(os.Environ(), "KUBECONFIG", opt.KubeConfig)
+	}
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "helm upgrade")
+	}
+	return nil
+}
+
 func CiliumInstall(opt CiliumInstallOptions) error {
 	// Should be installed via helm.
 	// helm upgrade --version 1.13.2 --install --create-namespace --namespace "cilium" cilium cilium/cilium --values cilium.yml
@@ -385,26 +434,19 @@ func CiliumInstall(opt CiliumInstallOptions) error {
 		return errors.Wrap(err, "write")
 	}
 
-	args := []string{
-		"upgrade",
-		"--install",
-		"--create-namespace",
-		"--namespace", "cilium",
-		"cillium",
-		"cillium/cillium",
-		"--values", fileName,
-	}
-	if opt.Version != "" {
-		args = append(args, "--version", opt.Version)
-	}
-	fmt.Println("> helm upgrade", args)
-	cmd := exec.Command("helm", args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Env = appendEnv(os.Environ(), "KUBECONFIG", "/etc/kubernetes/admin.conf")
-	if err := cmd.Run(); err != nil {
+	if err := HelmUpgrade(HelmUpgradeOptions{
+		Version:         opt.Version,
+		Name:            "cilium",
+		Install:         true,
+		Namespace:       "cilium",
+		CreateNamespace: true,
+		Chart:           "cilium/cilium",
+		Values:          fileName,
+		KubeConfig:      "/etc/kubernetes/admin.conf",
+	}); err != nil {
 		return errors.Wrap(err, "helm upgrade")
 	}
+
 	return nil
 }
 
