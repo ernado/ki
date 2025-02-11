@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -313,11 +314,29 @@ func KubeadmInit(opts KubeadmInitOptions) error {
 	}
 	fmt.Println("> kubeadm init", args)
 	cmd := exec.Command("kubeadm", append([]string{"init"}, args...)...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
+	output := bytes.NewBuffer(nil)
+	cmd.Stderr = io.MultiWriter(os.Stderr, output)
+	cmd.Stdout = io.MultiWriter(os.Stdout, output)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "kubeadm init")
 	}
+	reToken := regexp.MustCompile(`--token (\S+)`)
+	reHash := regexp.MustCompile(`--discovery-token-ca-cert-hash (\S+)`)
+	var token, hash string
+	scanner := bufio.NewScanner(output)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if m := reToken.FindStringSubmatch(line); m != nil {
+			token = m[1]
+		}
+		if m := reHash.FindStringSubmatch(line); m != nil {
+			hash = m[1]
+		}
+	}
+	if token == "" || hash == "" {
+		return errors.New("token or hash not found")
+	}
+	fmt.Printf("> Token: %s\nHash: %s\n", token, hash)
 	return nil
 }
 
@@ -355,22 +374,23 @@ func CiliumInstall(opt CiliumInstallOptions) error {
 		return errors.Wrap(err, "write")
 	}
 
-	var args []string
-	if opt.Version != "" {
-		args = append(args, "--version", opt.Version)
-	}
-	args = append(args,
+	args := []string{
+		"upgrade",
 		"--install",
 		"--create-namespace",
 		"--namespace", "cilium",
 		"cillium",
 		"cillium/cillium",
 		"--values", fileName,
-	)
+	}
+	if opt.Version != "" {
+		args = append(args, "--version", opt.Version)
+	}
 	fmt.Println("> helm upgrade", args)
 	cmd := exec.Command("helm", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	cmd.Env = appendEnv(os.Environ(), "KUBECONFIG", "/etc/kubernetes/admin.conf")
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "helm upgrade")
 	}
