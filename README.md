@@ -1,6 +1,6 @@
 # ki
 
-WIP: Opinionated Kubernetes Installer.
+WIP: Opinionated Kubernetes Installer for Hetzner Cloud.
 
 This can be done in Ansible, but I'm doing it myself in Go.
 
@@ -20,6 +20,7 @@ This can be done in Ansible, but I'm doing it myself in Go.
 - [x] Initialize the cluster
 - [x] Install a CNI (Cilium)
 - [x] Join cluster
+- [x] Install Hetzner ingress and CSI
 
 ### Usage
 

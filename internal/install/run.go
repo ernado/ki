@@ -342,6 +342,9 @@ func Run() error {
 	}); err != nil {
 		return errors.Wrap(err, "cilium install")
 	}
+	if err := HetznerCloudInstall(); err != nil {
+		return errors.Wrap(err, "hetzner cloud install")
+	}
 	fmt.Println("> Done")
 	return nil
 }
