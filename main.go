@@ -13,27 +13,24 @@ import (
 // DisableSwap disables swap on node.
 func DisableSwap() error {
 	{
-		// Disable swap.
-		fmt.Println("> Disabling swap")
-		cmd := exec.Command("swapoff", "-a")
-		if err := cmd.Run(); err != nil {
-			return errors.Wrap(err, "run")
-		}
-	}
-	{
 		// Update /etc/fstab.
-		fmt.Println("> Updating /etc/fstab")
 		fileName := "/etc/fstab"
 		data, err := os.ReadFile(fileName)
 		if err != nil {
 			return errors.Wrap(err, "read")
 		}
 		// Replace line with / swap to # Swap disabled.
-		var out []byte
 		scanner := bufio.NewScanner(bytes.NewReader(data))
+		targetString := []byte(" swap ")
+		if !bytes.Contains(data, targetString) {
+			fmt.Println("> Swap is not enabled")
+			return nil
+		}
+		fmt.Println("> Updating /etc/fstab")
+		var out []byte
 		for scanner.Scan() {
 			line := scanner.Text()
-			if len(line) > 0 && bytes.Contains([]byte(line), []byte(" swap ")) {
+			if len(line) > 0 && bytes.Contains(scanner.Bytes(), targetString) {
 				out = append(out, '#')
 			}
 			out = append(out, line...)
@@ -42,6 +39,14 @@ func DisableSwap() error {
 		// Write back.
 		if err := os.WriteFile("/etc/fstab", out, 0644); err != nil {
 			return errors.Wrap(err, "write")
+		}
+	}
+	{
+		// Disable swap.
+		fmt.Println("> Disabling swap")
+		cmd := exec.Command("swapoff", "-a")
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "run")
 		}
 	}
 	return nil
