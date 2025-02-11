@@ -30,7 +30,7 @@ runcmd:
   - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
   - tar -xvf ki-linux-amd64.tar.gz
   - mv ki /usr/local/bin/ki
-  - ki | tee /tmp/ki.txt
+  - ki --install
 ```
 
 Control node should have `10.0.1.1` as internal IP.
@@ -43,7 +43,7 @@ runcmd:
   - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
   - tar -xvf ki-linux-amd64.tar.gz
   - mv ki /usr/local/bin/ki
-  - ./ki --join | tee /tmp/ki.txt
+  - ki --join --install
 ```
 
 ## TODO
