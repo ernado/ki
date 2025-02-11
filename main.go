@@ -256,6 +256,45 @@ func ConfigureKernelParameters(name string, params map[string]any) error {
 	return nil
 }
 
+func Systemctl(action, service string) error {
+	fmt.Printf("> systemctl %s %s\n", action, service)
+	cmd := exec.Command("systemctl", action, service)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "systemctl")
+	}
+	return nil
+}
+
+func ConfigureContainerd() error {
+	// 1. Get default config.
+	cmd := exec.Command("containerd", "config", "default")
+	out, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "containerd config default")
+	}
+	// 2. Update config.
+	// sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+	out = bytes.ReplaceAll(out, []byte("SystemdCgroup = false"), []byte("SystemdCgroup = true"))
+	// Write back.
+	fileName := "/etc/containerd/config.toml"
+	fmt.Printf("> Writing %s\n", fileName)
+	if err := os.WriteFile(fileName, out, 0644); err != nil {
+		return errors.Wrap(err, "write")
+	}
+	// 3. Restart containerd.
+	if err := Systemctl("restart", "containerd"); err != nil {
+		return errors.Wrap(err, "restart containerd")
+	}
+	// 4. Enable containerd.
+	if err := Systemctl("enable", "containerd"); err != nil {
+		return errors.Wrap(err, "enable containerd")
+	}
+	fmt.Println("> Configured, restarted and enabled containerd")
+	return nil
+}
+
 func run() error {
 	// 0. Check OS.
 	release, err := lsbRelease()
@@ -317,6 +356,9 @@ func run() error {
 	}
 	if err := APTInstall("curl", "containerd.io"); err != nil {
 		return errors.Wrap(err, "install containerd")
+	}
+	if err := ConfigureContainerd(); err != nil {
+		return errors.Wrap(err, "configure containerd")
 	}
 	return nil
 }
