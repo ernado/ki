@@ -590,6 +590,17 @@ func InstallBinary(bin Binary) error {
 	return nil
 }
 
+func KubectlApply(file string) error {
+	fmt.Println("> kubectl apply -f", file)
+	cmd := exec.Command("kubectl", "apply", "-f", file)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "kubectl apply")
+	}
+	return nil
+}
+
 type Route struct {
 	Dst      string   `json:"dst"`
 	Gateway  string   `json:"gateway,omitempty"`
@@ -624,6 +635,9 @@ func GetDefaultGatewayIP() (string, error) {
 	}
 	return "", errors.New("default gateway not found")
 }
+
+const serviceMonitorCRD = "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/" +
+	"main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml"
 
 func run() error {
 	var arg struct {
@@ -772,6 +786,9 @@ func run() error {
 		return errors.Wrap(err, "kubeadm init")
 	}
 	// Install cilium.
+	if err := KubectlApply(serviceMonitorCRD); err != nil {
+		return errors.Wrap(err, "kubectl apply service monitor CRD")
+	}
 	fmt.Println("> Installing cilium")
 	if err := HelmAddRepo("cilium", "https://helm.cilium.io"); err != nil {
 		return errors.Wrap(err, "helm add repo")
