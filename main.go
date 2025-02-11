@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -104,7 +105,14 @@ func APTInstall(packages ...string) error {
 
 func APTKey(keyName, keyURL string) error {
 	fmt.Printf("> Adding GPG key %s\n", keyName)
-	fileName := filepath.Join("/etc/apt/trusted.gpg.d/", keyName+".gpg")
+	dirName := "/etc/apt/keyrings"
+	if _, err := os.Stat(dirName); os.IsNotExist(err) {
+		fmt.Println("> Creating", dirName)
+		if err := os.Mkdir(dirName, 0755); err != nil {
+			return errors.Wrap(err, "mkdir")
+		}
+	}
+	fileName := filepath.Join(dirName, keyName+".gpg")
 	if _, err := os.Stat(fileName); err == nil {
 		fmt.Printf("> GPG key %s already exists\n", fileName)
 		return nil
@@ -296,6 +304,12 @@ func ConfigureContainerd() error {
 }
 
 func run() error {
+	var arg struct {
+		Version string
+	}
+	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
+	flag.Parse()
+
 	// 0. Check OS.
 	release, err := lsbRelease()
 	if err != nil {
@@ -359,6 +373,19 @@ func run() error {
 	}
 	if err := ConfigureContainerd(); err != nil {
 		return errors.Wrap(err, "configure containerd")
+	}
+	// 5. Install k8s
+	fmt.Println("> Installing k8s")
+	if err := APTKey("k8s", "https://pkgs.k8s.io/core:/stable:/"+arg.Version+"/deb/Release.key"); err != nil {
+		return errors.Wrap(err, "add k8s key")
+	}
+	if err := APTAddRepo(APTAddRepoOptions{
+		Name:       "k8s",
+		URL:        "https://pkgs.k8s.io/core:/stable:/" + arg.Version + "/deb/",
+		SignedBy:   "/etc/apt/keyrings/k8s.gpg",
+		Components: []string{"/"},
+	}); err != nil {
+		return errors.Wrap(err, "add k8s repo")
 	}
 	return nil
 }
