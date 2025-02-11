@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"text/template"
 
 	"github.com/go-faster/errors"
@@ -93,7 +94,6 @@ func CiliumInstall(opt CiliumInstallOptions) error {
 		CreateNamespace: true,
 		Chart:           "cilium/cilium",
 		Values:          fileName,
-		KubeConfig:      kubeConfig,
 	}); err != nil {
 		return errors.Wrap(err, "helm upgrade")
 	}
@@ -132,19 +132,38 @@ func ConfigureContainerd() error {
 const serviceMonitorCRD = "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/" +
 	"main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml"
 
-const kubeConfig = "/etc/kubernetes/admin.conf"
+func SetupKubeconfig() error {
+	const kubeConfig = "/etc/kubernetes/admin.conf"
+	fmt.Println("> Setting up kubeconfig")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return errors.Wrap(err, "user home dir")
+	}
+	kubeDir := filepath.Join(homeDir, ".kube")
+	if err := os.MkdirAll(kubeDir, 0755); err != nil {
+		return errors.Wrap(err, "mkdir")
+	}
+	data, err := os.ReadFile(kubeConfig)
+	if err != nil {
+		return errors.Wrap(err, "read")
+	}
+	if err := os.WriteFile(filepath.Join(kubeDir, "config"), data, 0644); err != nil {
+		return errors.Wrap(err, "write")
+	}
+	fmt.Println("> Kubeconfig is ready")
+	return nil
+}
 
 func run() error {
 	var arg struct {
-		Version string
-
-		CiliumVersion string
-
-		CiliumCliVersion string
-		CiliumCliSHA256  string
-
-		HelmVersion string
-		HelmSHA256  string
+		Version                string
+		Join                   bool
+		CiliumVersion          string
+		CiliumCliVersion       string
+		CiliumCliSHA256        string
+		HelmVersion            string
+		HelmSHA256             string
+		ControlPlaneInternalIP string
 	}
 	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
 	flag.StringVar(&arg.HelmVersion, "helm-version", "v3.17.0", "helm version")
@@ -152,6 +171,8 @@ func run() error {
 	flag.StringVar(&arg.CiliumVersion, "cilium-version", "1.17.0", "cilium version")
 	flag.StringVar(&arg.CiliumCliVersion, "cilium-cli-version", "v0.16.24", "cilium cli version")
 	flag.StringVar(&arg.CiliumCliSHA256, "cilium-cli-sha256", "019c9c765222b3db5786f7b3a0bff2cd62944a8ce32681acfb47808330f405a7", "cilium cli sha256")
+	flag.BoolVar(&arg.Join, "join", false, "join cluster")
+	flag.StringVar(&arg.ControlPlaneInternalIP, "control-plane-internal-ip", "10.0.1.1", "control plane internal ip")
 	flag.Parse()
 
 	// 0. Check OS.
@@ -225,7 +246,7 @@ func run() error {
 	if err := APTAddRepo(APTAddRepoOptions{
 		Name:       "docker",
 		URL:        "https://download.docker.com/linux/ubuntu",
-		SignedBy:   "/etc/apt/trusted.gpg.d/docker.gpg",
+		SignedBy:   "/etc/apt/keyrings/docker.gpg",
 		Arch:       []string{"amd64"},
 		Components: []string{release, "stable"},
 	}); err != nil {
@@ -272,18 +293,28 @@ func run() error {
 	}
 	// Initialize k8s
 	fmt.Println("> Initializing k8s")
+	if arg.Join {
+		if err := KubeadmJoin(arg.ControlPlaneInternalIP); err != nil {
+			return errors.Wrap(err, "kubeadm join")
+		}
+		fmt.Println("> Joined")
+		return nil
+	}
 	if err := KubeadmInit(KubeadmInitOptions{
 		SkipPhases:           []string{"addon/kube-proxy"},
 		PodNetworkCIDR:       "10.244.0.0/16",
 		ServiceCIDR:          "10.96.0.0/16",
 		ControlPlaneEndpoint: defaultGateway,
+		ExtraSans:            []string{arg.ControlPlaneInternalIP},
 	}); err != nil {
 		return errors.Wrap(err, "kubeadm init")
 	}
+	if err := SetupKubeconfig(); err != nil {
+		return errors.Wrap(err, "setup kubeconfig")
+	}
 	// Install cilium.
 	if err := KubectlApply(KubectlApplyOptions{
-		File:       serviceMonitorCRD,
-		Kubeconfig: kubeConfig,
+		File: serviceMonitorCRD,
 	}); err != nil {
 		return errors.Wrap(err, "kubectl apply service monitor CRD")
 	}
@@ -297,7 +328,7 @@ func run() error {
 	}); err != nil {
 		return errors.Wrap(err, "cilium install")
 	}
-
+	fmt.Println("> Done")
 	return nil
 }
 

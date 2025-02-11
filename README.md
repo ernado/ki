@@ -8,6 +8,7 @@ This can be done in Ansible, but I'm doing it myself in Go.
 
 - https://v1-31.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 - https://www.linkedin.com/pulse/step-by-step-guide-installing-kubernetes-ubuntu-2404-lts-jayaraman-okozc
+- https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
 
 ## What it should do
 
@@ -18,7 +19,7 @@ This can be done in Ansible, but I'm doing it myself in Go.
 - [x] Install helm, cilium
 - [x] Initialize the cluster
 - [x] Install a CNI (Cilium)
-- [ ] Joing cluster
+- [x] Join cluster
 
 ## TODO
 
