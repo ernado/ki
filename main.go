@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 
@@ -52,9 +53,45 @@ func DisableSwap() error {
 	return nil
 }
 
+func appendEnv(vars []string, key, value string) []string {
+	return append(vars, key+"="+value)
+}
+
+func APTUpdate() error {
+	fmt.Println("> apt-get update")
+	cmd := exec.Command("apt-get", "update")
+	cmd.Env = appendEnv(os.Environ(), "DEBIAN_FRONTEND", "noninteractive")
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	return nil
+}
+
+func CheckTCPPortIsFree(n int) error {
+	// nc 127.0.0.1 6443 -v
+	// ^ should fail, but in go.
+	fmt.Printf("> Checking port %d\n", n)
+	tcpAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: n}
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		fmt.Printf("> Port %d is free\n", n)
+		return nil
+	}
+	_ = conn.Close()
+	return errors.Errorf("port %d is in use", n)
+}
+
 func run() error {
 	if err := DisableSwap(); err != nil {
 		return errors.Wrap(err, "disable swap")
+	}
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	if err := CheckTCPPortIsFree(6443); err != nil {
+		return errors.Wrap(err, "check k8s port")
 	}
 	return nil
 }
