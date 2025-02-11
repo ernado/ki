@@ -49,7 +49,7 @@ func Service(opt ServiceOptions) error {
 		}
 	}
 	{
-		cmd := exec.Command("systemctl", "start", "-no-block", "ki.service")
+		cmd := exec.Command("systemctl", "start", "--no-block", "ki.service")
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil {
