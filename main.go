@@ -65,7 +65,7 @@ func appendEnv(vars []string, key, value string) []string {
 func APTUpdate() error {
 	fmt.Println("> apt-get update")
 	cmd := exec.Command("apt-get", "update")
-	cmd.Env = appendEnv(os.Environ(), "DEBIAN_FRONTEND", "noninteractive")
+	cmd.Env = appendDebianFrontend(os.Environ())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
@@ -74,10 +74,26 @@ func APTUpdate() error {
 	return nil
 }
 
+func appendDebianFrontend(vars []string) []string {
+	return appendEnv(vars, "DEBIAN_FRONTEND", "noninteractive")
+}
+
+func APTUpgrade() error {
+	fmt.Println("> apt-get upgrade")
+	cmd := exec.Command("apt-get", "upgrade", "-y")
+	cmd.Env = appendDebianFrontend(os.Environ())
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "apt upgrade")
+	}
+	return nil
+}
+
 func APTInstall(packages ...string) error {
 	fmt.Println("> apt-get install", packages)
 	cmd := exec.Command("apt-get", append([]string{"install", "-y"}, packages...)...)
-	cmd.Env = appendEnv(os.Environ(), "DEBIAN_FRONTEND", "noninteractive")
+	cmd.Env = appendDebianFrontend(os.Environ())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
@@ -265,6 +281,10 @@ func run() error {
 	if err := APTUpdate(); err != nil {
 		return errors.Wrap(err, "apt update")
 	}
+	// 4. Upgrade packages
+	if err := APTUpgrade(); err != nil {
+		return errors.Wrap(err, "apt upgrade")
+	}
 	// Installing a container runtime.
 	if err := LoadKernelModules("containerd", "overlay", "br_netfilter"); err != nil {
 		return errors.Wrap(err, "load kernel modules")
@@ -291,6 +311,12 @@ func run() error {
 		Components: []string{release, "stable"},
 	}); err != nil {
 		return errors.Wrap(err, "add docker repo")
+	}
+	if err := APTUpdate(); err != nil {
+		return errors.Wrap(err, "apt update")
+	}
+	if err := APTInstall("curl", "containerd.io"); err != nil {
+		return errors.Wrap(err, "install containerd")
 	}
 	return nil
 }
