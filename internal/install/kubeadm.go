@@ -100,7 +100,7 @@ func KubeadmJoin(controlPlaneNodeInternalIP string) error {
 		ticker := time.NewTicker(time.Second)
 		fmt.Println("> Waiting for control plane node")
 		defer ticker.Stop()
-		for {
+		for range ticker.C {
 			if ctx.Err() != nil {
 				return errors.New("timeout waiting for control plane to listen on 6443")
 			}
