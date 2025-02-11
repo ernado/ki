@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,6 +85,48 @@ func APTInstall(packages ...string) error {
 	return nil
 }
 
+func APTKey(keyName, keyURL string) error {
+	fmt.Printf("> Adding GPG key %s\n", keyName)
+	fileName := filepath.Join("/etc/apt/trusted.gpg.d/", keyName+".gpg")
+	if _, err := os.Stat(fileName); err == nil {
+		fmt.Printf("> GPG key %s already exists\n", fileName)
+		return nil
+	}
+	fmt.Println("Downloading key", keyURL)
+	res, err := http.Get(keyURL)
+	if err != nil {
+		return errors.Wrap(err, "get key")
+	}
+	defer func() {
+		_ = res.Body.Close()
+	}()
+	if res.StatusCode != http.StatusOK {
+		return errors.Errorf("bad status: %s", res.Status)
+	}
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return errors.Wrap(err, "read key")
+	}
+	fmt.Printf("> Writing %s\n", fileName)
+	cmd := exec.Command("gpg", "--dearmour", "-o", fileName)
+	cmd.Stdin = bytes.NewReader(data)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "gpg")
+	}
+	return nil
+}
+
+func lsbRelease() (string, error) {
+	cmd := exec.Command("lsb_release", "-cs")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrap(err, "lsb_release")
+	}
+	return string(bytes.TrimSpace(out)), nil
+}
+
 func CheckTCPPortIsFree(n int) error {
 	// nc 127.0.0.1 6443 -v
 	// ^ should fail, but in go.
@@ -151,6 +195,18 @@ func ConfigureKernelParameters(name string, params map[string]any) error {
 }
 
 func run() error {
+	// 0. Check OS.
+	release, err := lsbRelease()
+	if err != nil {
+		return errors.Wrap(err, "lsb_release")
+	}
+	fmt.Println("> OS release:", release)
+	supported := map[string]struct{}{
+		"noble": {},
+	}
+	if _, ok := supported[release]; !ok {
+		return errors.Errorf("unsupported OS: %s", release)
+	}
 	// 1. Check required ports
 	if err := CheckTCPPortIsFree(6443); err != nil {
 		return errors.Wrap(err, "check k8s port")
@@ -177,6 +233,9 @@ func run() error {
 	fmt.Println("> Installing containerd")
 	if err := APTInstall("curl", "gnupg2", "software-properties-common", "apt-transport-https", "ca-certificates"); err != nil {
 		return errors.Wrap(err, "install containerd dependencies")
+	}
+	if err := APTKey("docker", "https://download.docker.com/linux/ubuntu/gpg"); err != nil {
+		return errors.Wrap(err, "add docker key")
 	}
 	return nil
 }
