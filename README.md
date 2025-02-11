@@ -21,6 +21,31 @@ This can be done in Ansible, but I'm doing it myself in Go.
 - [x] Install a CNI (Cilium)
 - [x] Join cluster
 
+### Usage
+
+#### Create cluster
+
+```yaml
+runcmd:
+  - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
+  - tar -xvf ki-linux-amd64.tar.gz
+  - mv ki-linux-amd64/ki /usr/local/bin/ki
+  - ki | tee /tmp/ki.txt
+```
+
+Control node should have `10.0.1.1` as internal IP.
+You can specify it by `-control-plane-internal-ip` flag.
+
+#### Join cluster
+
+```yaml
+runcmd:
+  - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
+  - tar -xvf ki-linux-amd64.tar.gz
+  - mv ki-linux-amd64/ki /usr/local/bin/ki
+  - ./ki --join | tee /tmp/ki.txt
+```
+
 ## TODO
 
 ```bash
