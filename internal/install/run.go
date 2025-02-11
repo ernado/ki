@@ -164,6 +164,7 @@ func Run() error {
 		HelmVersion            string
 		HelmSHA256             string
 		ControlPlaneInternalIP string
+		Install                bool
 	}
 	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
 	flag.StringVar(&arg.HelmVersion, "helm-version", "v3.17.0", "helm version")
@@ -173,9 +174,10 @@ func Run() error {
 	flag.StringVar(&arg.CiliumCliSHA256, "cilium-cli-sha256", "019c9c765222b3db5786f7b3a0bff2cd62944a8ce32681acfb47808330f405a7", "cilium cli sha256")
 	flag.BoolVar(&arg.Join, "join", false, "join cluster")
 	flag.StringVar(&arg.ControlPlaneInternalIP, "control-plane-internal-ip", "10.0.1.1", "control plane internal ip")
+	flag.BoolVar(&arg.Install, "install", false, "install")
 	flag.Parse()
 
-	// 0. Check OS.
+	// Check OS.
 	release, err := lsbRelease()
 	if err != nil {
 		return errors.Wrap(err, "lsb_release")
@@ -196,6 +198,18 @@ func Run() error {
 	if err := CheckTCPPortIsFree(6443); err != nil {
 		return errors.Wrap(err, "check k8s port")
 	}
+
+	if arg.Install {
+		// Only installing as service, not running.
+		if err := Service(ServiceOptions{
+			Join: arg.Join,
+		}); err != nil {
+			return errors.Wrap(err, "service")
+		}
+		fmt.Println("> Done")
+		return nil
+	}
+
 	if err := InstallBinary(Binary{
 		Name:   "helm",
 		URL:    "https://get.helm.sh/helm-" + arg.HelmVersion + "-linux-amd64.tar.gz",
