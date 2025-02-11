@@ -1,21 +1,62 @@
 package main
 
 import (
-  "fmt"
+	"bufio"
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+
+	"github.com/go-faster/errors"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
+// DisableSwap disables swap on node.
+func DisableSwap() error {
+	{
+		// Disable swap.
+		fmt.Println("> Disabling swap")
+		cmd := exec.Command("swapoff", "-a")
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "run")
+		}
+	}
+	{
+		// Update /etc/fstab.
+		fmt.Println("> Updating /etc/fstab")
+		fileName := "/etc/fstab"
+		data, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrap(err, "read")
+		}
+		// Replace line with / swap to # Swap disabled.
+		var out []byte
+		scanner := bufio.NewScanner(bytes.NewReader(data))
+		for scanner.Scan() {
+			line := scanner.Text()
+			if len(line) > 0 && bytes.Contains([]byte(line), []byte(" swap ")) {
+				out = append(out, '#')
+			}
+			out = append(out, line...)
+			out = append(out, '\n')
+		}
+		// Write back.
+		if err := os.WriteFile("/etc/fstab", out, 0644); err != nil {
+			return errors.Wrap(err, "write")
+		}
+	}
+	return nil
+}
+
+func run() error {
+	if err := DisableSwap(); err != nil {
+		return errors.Wrap(err, "disable swap")
+	}
+	return nil
+}
 
 func main() {
-  //TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-  // to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-  s := "gopher"
-  fmt.Println("Hello and welcome, %s!", s)
-
-  for i := 1; i <= 5; i++ {
-	//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-	fmt.Println("i =", 100/i)
-  }
+	if err := run(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %+v\n", err)
+		os.Exit(1)
+	}
 }
