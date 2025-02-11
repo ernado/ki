@@ -82,7 +82,7 @@ func KubeadmInit(opts KubeadmInitOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "marshal")
 	}
-	if err := os.WriteFile(initParamsPath, data, 0644); err != nil {
+	if err := os.WriteFile(initParamsPath, data, 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 

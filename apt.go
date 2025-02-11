@@ -69,7 +69,7 @@ func APTKey(keyName, keyURL string) error {
 	dirName := "/etc/apt/keyrings"
 	if _, err := os.Stat(dirName); os.IsNotExist(err) {
 		fmt.Println("> Creating", dirName)
-		if err := os.Mkdir(dirName, 0755); err != nil {
+		if err := os.Mkdir(dirName, 0750); err != nil {
 			return errors.Wrap(err, "mkdir")
 		}
 	}
@@ -140,9 +140,9 @@ func APTAddRepo(opt APTAddRepoOptions) error {
 	s.WriteString("\n")
 
 	// Write to file.
-	fileName := filepath.Join("/etc/apt/sources.list.d/", opt.Name+".list")
+	fileName := filepath.Join("/etc/apt/sources.list.d", opt.Name+".list")
 	fmt.Printf("> Writing %s\n", fileName)
-	if err := os.WriteFile(fileName, []byte(s.String()), 0644); err != nil {
+	if err := os.WriteFile(fileName, []byte(s.String()), 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 

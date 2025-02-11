@@ -21,14 +21,14 @@ func LoadKernelModules(name string, modules ...string) error {
 		}
 	}
 	// Persist in named configuration.
-	fileName := filepath.Join("/etc/modules-load.d/", name+".conf")
+	fileName := filepath.Join("/etc/modules-load.d", name+".conf")
 	fmt.Printf("> Writing %s\n", fileName)
 	var out []byte
 	for _, module := range modules {
 		out = append(out, module...)
 		out = append(out, '\n')
 	}
-	if err := os.WriteFile(fileName, out, 0644); err != nil {
+	if err := os.WriteFile(fileName, out, 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 	return nil
@@ -36,7 +36,7 @@ func LoadKernelModules(name string, modules ...string) error {
 
 func ConfigureKernelParameters(name string, params map[string]any) error {
 	fmt.Printf("> Configuring kernel parameters for %s\n", name)
-	fileName := filepath.Join("/etc/sysctl.d/", name+".conf")
+	fileName := filepath.Join("/etc/sysctl.d", name+".conf")
 	keys := make([]string, 0, len(params))
 	for key := range params {
 		keys = append(keys, key)
@@ -50,7 +50,7 @@ func ConfigureKernelParameters(name string, params map[string]any) error {
 		out = append(out, fmt.Sprintf("%v", params[key])...)
 		out = append(out, '\n')
 	}
-	if err := os.WriteFile(fileName, out, 0644); err != nil {
+	if err := os.WriteFile(fileName, out, 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 	// Reload.

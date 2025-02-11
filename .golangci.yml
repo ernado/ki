@@ -34,6 +34,8 @@ linters-settings:
       - unnecessaryBlock
       - redundantSprint
       - octalLiteral
+      - filepathJoin
+      - emptyStringTest
 
 linters:
   disable-all: true
@@ -121,12 +123,11 @@ issues:
       linters: [ revive ]
       text: "package-comments"
 
-    - path: (install)
-      linters: [ gosec ]
-      text: "G204" # Subprocess launched with variable
-
     - linters: [ gosec ]
       text: "G115" # uint32 -> uint16
+
+    - linters: [ gosec ]
+      text: "(G204|G107|G304)" # by design
 
     - linters: [ revive ]
       text: "comment on exported const .+ should be of the form"

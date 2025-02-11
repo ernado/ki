@@ -82,7 +82,7 @@ func CiliumInstall(opt CiliumInstallOptions) error {
 	// Write to file.
 	fileName := "cilium.yml"
 	fmt.Printf("> Writing %s\n", fileName)
-	if err := os.WriteFile(fileName, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(fileName, buf.Bytes(), 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 
@@ -114,7 +114,7 @@ func ConfigureContainerd() error {
 	// Write back.
 	fileName := "/etc/containerd/config.toml"
 	fmt.Printf("> Writing %s\n", fileName)
-	if err := os.WriteFile(fileName, out, 0644); err != nil {
+	if err := os.WriteFile(fileName, out, 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 	// 3. Restart containerd.
@@ -140,14 +140,14 @@ func SetupKubeconfig() error {
 		return errors.Wrap(err, "user home dir")
 	}
 	kubeDir := filepath.Join(homeDir, ".kube")
-	if err := os.MkdirAll(kubeDir, 0755); err != nil {
+	if err := os.MkdirAll(kubeDir, 0750); err != nil {
 		return errors.Wrap(err, "mkdir")
 	}
 	data, err := os.ReadFile(kubeConfig)
 	if err != nil {
 		return errors.Wrap(err, "read")
 	}
-	if err := os.WriteFile(filepath.Join(kubeDir, "config"), data, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(kubeDir, "config"), data, 0600); err != nil {
 		return errors.Wrap(err, "write")
 	}
 	fmt.Println("> Kubeconfig is ready")

@@ -37,7 +37,7 @@ func DisableSwap() error {
 			out = append(out, '\n')
 		}
 		// Write back.
-		if err := os.WriteFile("/etc/fstab", out, 0644); err != nil {
+		if err := os.WriteFile("/etc/fstab", out, 0600); err != nil {
 			return errors.Wrap(err, "write")
 		}
 	}
