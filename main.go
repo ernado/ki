@@ -407,6 +407,14 @@ func run() error {
 	if err := APTHold("kubeadm", "kubelet", "kubectl"); err != nil {
 		return errors.Wrap(err, "hold k8s")
 	}
+	// 6. Enable and start kubelet
+	fmt.Println("> Starting kubelet")
+	if err := Systemctl("enable", "kubelet"); err != nil {
+		return errors.Wrap(err, "enable kubelet")
+	}
+	if err := Systemctl("start", "kubelet"); err != nil {
+		return errors.Wrap(err, "start kubelet")
+	}
 	return nil
 }
 
