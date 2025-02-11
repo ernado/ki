@@ -17,3 +17,9 @@ This can be done in Ansible, but I'm doing it myself in Go.
 - [x] Install kubelet, kubeadm, kubectl
 - [ ] Initialize the cluster
 - [ ] Install a CNI
+
+## TODO
+
+```bash
+W0211 15:38:05.996784   19812 checks.go:846] detected that the sandbox image "registry.k8s.io/pause:3.8" of the container runtime is inconsistent with that used by kubeadm.It is recommended to use "registry.k8s.io/pause:3.10" as the CRI sandbox image.
+```

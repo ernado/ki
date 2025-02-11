@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	_ "embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/go-faster/errors"
 )
@@ -286,6 +289,93 @@ func Systemctl(action, service string) error {
 	return nil
 }
 
+type KubeadmInitOptions struct {
+	SkipPhases           []string
+	PodNetworkCIDR       string
+	ServiceCIDR          string
+	ControlPlaneEndpoint string
+}
+
+func KubeadmInit(opts KubeadmInitOptions) error {
+	var args []string
+	if len(opts.SkipPhases) > 0 {
+		args = append(args, "--skip-phases="+strings.Join(opts.SkipPhases, ","))
+	}
+	if opts.PodNetworkCIDR != "" {
+		args = append(args, "--pod-network-cidr="+opts.PodNetworkCIDR)
+	}
+	if opts.ServiceCIDR != "" {
+		args = append(args, "--service-cidr="+opts.ServiceCIDR)
+	}
+	if opts.ControlPlaneEndpoint != "" {
+		args = append(args, "--control-plane-endpoint="+opts.ControlPlaneEndpoint)
+	}
+	fmt.Println("> kubeadm init", args)
+	cmd := exec.Command("kubeadm", append([]string{"init"}, args...)...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "kubeadm init")
+	}
+	return nil
+}
+
+//go:embed cilium.yml.tmpl
+var ciliumConfigTemplate string
+
+type CiliumConfig struct {
+	K8sServiceHost string // 1.1.1.1
+}
+
+type CiliumInstallOptions struct {
+	Version        string
+	K8sServiceHost string
+}
+
+func CiliumInstall(opt CiliumInstallOptions) error {
+	// Should be installed via helm.
+	// helm upgrade --version 1.13.2 --install --create-namespace --namespace "cilium" cilium cilium/cilium --values cilium.yml
+	// 1. Render template.
+	tmpl, err := template.New("cilium.yml").Parse(ciliumConfigTemplate)
+	if err != nil {
+		return errors.Wrap(err, "parse template")
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, CiliumConfig{
+		K8sServiceHost: opt.K8sServiceHost,
+	}); err != nil {
+		return errors.Wrap(err, "execute template")
+	}
+
+	// Write to file.
+	fileName := "cilium.yml"
+	fmt.Printf("> Writing %s\n", fileName)
+	if err := os.WriteFile(fileName, buf.Bytes(), 0644); err != nil {
+		return errors.Wrap(err, "write")
+	}
+
+	var args []string
+	if opt.Version != "" {
+		args = append(args, "--version", opt.Version)
+	}
+	args = append(args,
+		"--install",
+		"--create-namespace",
+		"--namespace", "cilium",
+		"cillium",
+		"cillium/cillium",
+		"--values", fileName,
+	)
+	fmt.Println("> helm upgrade", args)
+	cmd := exec.Command("helm", args...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "helm upgrade")
+	}
+	return nil
+}
+
 func ConfigureContainerd() error {
 	// 1. Get default config.
 	cmd := exec.Command("containerd", "config", "default")
@@ -333,6 +423,11 @@ func run() error {
 	if _, ok := supported[release]; !ok {
 		return errors.Errorf("unsupported OS: %s", release)
 	}
+	defaultGateway, err := GetDefaultGatewayIP()
+	if err != nil {
+		return errors.Wrap(err, "get default gateway")
+	}
+	fmt.Println("> Default gateway:", defaultGateway)
 	// 1. Check required ports
 	if err := CheckTCPPortIsFree(6443); err != nil {
 		return errors.Wrap(err, "check k8s port")
@@ -415,7 +510,59 @@ func run() error {
 	if err := Systemctl("start", "kubelet"); err != nil {
 		return errors.Wrap(err, "start kubelet")
 	}
+	// 7. Initialize k8s
+	fmt.Println("> Initializing k8s")
+	if err := KubeadmInit(KubeadmInitOptions{
+		SkipPhases:           []string{"addon/kube-proxy"},
+		PodNetworkCIDR:       "10.244.0.0/16",
+		ServiceCIDR:          "10.96.0.0/16",
+		ControlPlaneEndpoint: defaultGateway,
+	}); err != nil {
+		return errors.Wrap(err, "kubeadm init")
+	}
+	if err := CiliumInstall(CiliumInstallOptions{
+		Version:        "1.17.0",
+		K8sServiceHost: defaultGateway,
+	}); err != nil {
+		return errors.Wrap(err, "cilium install")
+	}
+
 	return nil
+}
+
+type Route struct {
+	Dst      string   `json:"dst"`
+	Gateway  string   `json:"gateway,omitempty"`
+	Dev      string   `json:"dev"`
+	Protocol string   `json:"protocol"`
+	PrefSrc  string   `json:"prefsrc"`
+	Metric   int      `json:"metric"`
+	Flags    []any    `json:"flags"`
+	Metrics  []Metric `json:"metrics,omitempty"`
+	Scope    string   `json:"scope,omitempty"`
+}
+
+type Metric struct {
+	MTU int `json:"mtu"`
+}
+
+func GetDefaultGatewayIP() (string, error) {
+	// This is valid for hetzher.
+	cmd := exec.Command("ip", "-j", "route", "show", "default")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrap(err, "ip route show default")
+	}
+	var routes []Route
+	if err := json.Unmarshal(out, &routes); err != nil {
+		return "", errors.Wrap(err, "unmarshal")
+	}
+	for _, route := range routes {
+		if route.Dst == "default" {
+			return route.PrefSrc, nil
+		}
+	}
+	return "", errors.New("default gateway not found")
 }
 
 func main() {

@@ -1,0 +1,123 @@
+{{- /*gotype: github.com/ernado/ki.CiliumConfig*/ -}}
+
+cluster:
+  id: 1
+  name: k8s
+encryption:
+  nodeEncryption: false
+hubble:
+  tls:
+    enabled: false
+  enabled: true
+  ui:
+    enabled: true
+  relay:
+    enabled: true
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+  metrics:
+    dashboards:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+    enabled:
+      - dns:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+      - drop:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+      - tcp:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+      - flow:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+      - port-distribution:labelsContext=source_ip,source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+      - icmp:labelsContext=source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction
+      - httpV2:exemplars=true;labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+nodeinit:
+  # -- Enable the node initialization DaemonSet
+  enabled: true
+  restartPods: true
+
+ipam:
+  # -- Configure IP Address Management mode.
+  # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
+  mode: "kubernetes"
+
+kubeProxyReplacement: strict
+operator:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  replicas: 1
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+proxy:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+serviceAccounts:
+  cilium:
+    name: cilium
+  operator:
+    name: cilium-operator
+externalIPs:
+  enabled: true
+nodePort:
+  enabled: true
+hostPort:
+  enabled: true
+pprof:
+  enabled: true
+bpf:
+  masquerade: true
+  clockProbe: true
+  preallocateMaps: true
+  hostRouting: true
+  tproxy: true
+
+endpointRoutes:
+  # -- Enable use of per endpoint routes instead of routing via
+  # the cilium_host interface.
+  enabled: true
+
+devices: "eth0"
+
+egressGateway:
+  enabled: true
+  # -- Install egress gateway IP rules and routes in order to properly steer
+  # egress gateway traffic to the correct ENI interface
+
+bandwidthManager:
+  # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
+  enabled: true
+  # -- Activate BBR TCP congestion control for Pods
+
+localRedirectPolicy: true
+enableCiliumEndpointSlice: true
+enableK8sEventHandover: true
+enableK8sEndpointSlice: true
+
+wellKnownIdentities:
+  # -- Enable the use of well-known identities.
+  enabled: true
+
+sockops:
+  # enabled enables installation of socket options acceleration.
+  enabled: true
+
+socketLB:
+  enabled: true
+
+tunnel: geneve
+
+ingressController:
+  enabled: true
+  loadbalancerMode: shared
+  default: true
+  loadBalancer:
+    l7:
+      backend: envoy
+
+k8sServiceHost: {{ $.K8sServiceHost}}
+k8sServicePort: 6443
