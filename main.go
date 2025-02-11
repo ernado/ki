@@ -352,6 +352,17 @@ type CiliumInstallOptions struct {
 	K8sServiceHost string
 }
 
+func HelmAddRepo(name, url string) error {
+	fmt.Printf("> helm repo add %s %s\n", name, url)
+	cmd := exec.Command("helm", "repo", "add", name, url)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "helm repo add")
+	}
+	return nil
+}
+
 func CiliumInstall(opt CiliumInstallOptions) error {
 	// Should be installed via helm.
 	// helm upgrade --version 1.13.2 --install --create-namespace --namespace "cilium" cilium cilium/cilium --values cilium.yml
@@ -700,7 +711,7 @@ func run() error {
 	if err := APTHold("kubeadm", "kubelet", "kubectl"); err != nil {
 		return errors.Wrap(err, "hold k8s")
 	}
-	// 6. Enable and start kubelet
+	// Enable and start kubelet
 	fmt.Println("> Starting kubelet")
 	if err := Systemctl("enable", "kubelet"); err != nil {
 		return errors.Wrap(err, "enable kubelet")
@@ -708,7 +719,7 @@ func run() error {
 	if err := Systemctl("start", "kubelet"); err != nil {
 		return errors.Wrap(err, "start kubelet")
 	}
-	// 7. Initialize k8s
+	// Initialize k8s
 	fmt.Println("> Initializing k8s")
 	if err := KubeadmInit(KubeadmInitOptions{
 		SkipPhases:           []string{"addon/kube-proxy"},
@@ -717,6 +728,11 @@ func run() error {
 		ControlPlaneEndpoint: defaultGateway,
 	}); err != nil {
 		return errors.Wrap(err, "kubeadm init")
+	}
+	// Install cilium.
+	fmt.Println("> Installing cilium")
+	if err := HelmAddRepo("cilium", "https://helm.cilium.io"); err != nil {
+		return errors.Wrap(err, "helm add repo")
 	}
 	if err := CiliumInstall(CiliumInstallOptions{
 		Version:        arg.CiliumVersion,
