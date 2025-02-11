@@ -555,8 +555,13 @@ func GetDefaultGatewayIP() (string, error) {
 func run() error {
 	var arg struct {
 		Version string
+
+		HelmVersion string
+		HelmSHA256  string
 	}
 	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
+	flag.StringVar(&arg.HelmVersion, "helm-version", "v3.17.0", "helm version")
+	flag.StringVar(&arg.HelmSHA256, "helm-sha256", "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24", "helm sha256")
 	flag.Parse()
 
 	// 0. Check OS.
@@ -582,8 +587,8 @@ func run() error {
 	}
 	if err := InstallBinary(Binary{
 		Name:   "helm",
-		URL:    "https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz",
-		SHA256: "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
+		URL:    "https://get.helm.sh/helm-" + arg.HelmVersion + "-linux-amd64.tar.gz",
+		SHA256: arg.HelmSHA256,
 	}); err != nil {
 		return errors.Wrap(err, "install helm")
 	}
