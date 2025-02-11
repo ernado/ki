@@ -556,12 +556,20 @@ func run() error {
 	var arg struct {
 		Version string
 
+		CiliumVersion string
+
+		CiliumCliVersion string
+		CiliumCliSHA256  string
+
 		HelmVersion string
 		HelmSHA256  string
 	}
 	flag.StringVar(&arg.Version, "version", "v1.31", "kubernetes version")
 	flag.StringVar(&arg.HelmVersion, "helm-version", "v3.17.0", "helm version")
 	flag.StringVar(&arg.HelmSHA256, "helm-sha256", "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24", "helm sha256")
+	flag.StringVar(&arg.CiliumVersion, "cilium-version", "1.17.0", "cilium version")
+	flag.StringVar(&arg.CiliumCliVersion, "cilium-cli-version", "v0.16.24", "cilium cli version")
+	flag.StringVar(&arg.CiliumCliSHA256, "cilium-cli-sha256", "019c9c765222b3db5786f7b3a0bff2cd62944a8ce32681acfb47808330f405a7", "cilium cli sha256")
 	flag.Parse()
 
 	// 0. Check OS.
@@ -592,6 +600,16 @@ func run() error {
 	}); err != nil {
 		return errors.Wrap(err, "install helm")
 	}
+
+	// https://github.com/cilium/cilium-cli/releases/
+	if err := InstallBinary(Binary{
+		Name:   "cilium",
+		URL:    "https://github.com/cilium/cilium-cli/releases/download/" + arg.CiliumCliVersion + "/cilium-linux-amd64.tar.gz",
+		SHA256: arg.CiliumCliSHA256,
+	}); err != nil {
+		return errors.Wrap(err, "install cilium")
+	}
+
 	// Swap configuration
 	if err := DisableSwap(); err != nil {
 		return errors.Wrap(err, "disable swap")
@@ -681,7 +699,7 @@ func run() error {
 		return errors.Wrap(err, "kubeadm init")
 	}
 	if err := CiliumInstall(CiliumInstallOptions{
-		Version:        "1.17.0",
+		Version:        arg.CiliumVersion,
 		K8sServiceHost: defaultGateway,
 	}); err != nil {
 		return errors.Wrap(err, "cilium install")
