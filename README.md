@@ -29,7 +29,7 @@ This can be done in Ansible, but I'm doing it myself in Go.
 runcmd:
   - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
   - tar -xvf ki-linux-amd64.tar.gz
-  - mv ki-linux-amd64/ki /usr/local/bin/ki
+  - mv ki /usr/local/bin/ki
   - ki | tee /tmp/ki.txt
 ```
 
@@ -42,7 +42,7 @@ You can specify it by `-control-plane-internal-ip` flag.
 runcmd:
   - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
   - tar -xvf ki-linux-amd64.tar.gz
-  - mv ki-linux-amd64/ki /usr/local/bin/ki
+  - mv ki /usr/local/bin/ki
   - ./ki --join | tee /tmp/ki.txt
 ```
 
