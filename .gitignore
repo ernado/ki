@@ -15,3 +15,5 @@
 # vendor/
 /ki
 /coverage.txt
+/dist/
+/.task/
