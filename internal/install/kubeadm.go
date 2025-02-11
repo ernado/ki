@@ -94,21 +94,28 @@ func KubeadmInit(opts KubeadmInitOptions) error {
 
 func KubeadmJoin(controlPlaneNodeInternalIP string) error {
 	// Wait for 6443 port on control plane node.
-	ticker := time.NewTicker(time.Second)
-	fmt.Println("> Waiting for control plane node")
-	defer ticker.Stop()
-	for {
-		err := func() error {
-			conn, err := net.Dial("tcp", net.JoinHostPort(controlPlaneNodeInternalIP, "6443"))
-			if err != nil {
-				fmt.Println(err)
-				return err
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		ticker := time.NewTicker(time.Second)
+		fmt.Println("> Waiting for control plane node")
+		defer ticker.Stop()
+		for {
+			if ctx.Err() != nil {
+				return errors.New("timeout waiting for control plane to listen on 6443")
 			}
-			_ = conn.Close()
-			return nil
-		}()
-		if err == nil {
-			break
+			err := func() error {
+				conn, err := net.Dial("tcp", net.JoinHostPort(controlPlaneNodeInternalIP, "6443"))
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+				_ = conn.Close()
+				return nil
+			}()
+			if err == nil {
+				break
+			}
 		}
 	}
 
