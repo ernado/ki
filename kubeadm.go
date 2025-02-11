@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-faster/errors"
 )
@@ -90,6 +91,25 @@ func KubeadmInit(opts KubeadmInitOptions) error {
 }
 
 func KubeadmJoin(controlPlaneNodeInternalIP string) error {
+	// Wait for 6443 port on control plane node.
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		err := func() error {
+			conn, err := net.Dial("tcp", net.JoinHostPort(controlPlaneNodeInternalIP, "6443"))
+			if err != nil {
+				return err
+			}
+			_ = conn.Close()
+			return nil
+		}()
+		if err == nil {
+			break
+		}
+	}
+
+	fmt.Println("> kubeadm join")
+
 	var params InitParams
 	{
 		cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=accept-new", "cluster@"+controlPlaneNodeInternalIP, "sudo", "cat", initParamsPath)
