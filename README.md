@@ -31,7 +31,7 @@ ki-prepare-tf
 terraform init
 # cat .tfvars
 # Update .tfvars if needed
-terraform apply -tfvars=.tfvars
+terraform apply --var-file=.tfvars
 ```
 
 ## TODO
