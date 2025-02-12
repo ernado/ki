@@ -46,10 +46,14 @@ jobs:
         env:
           HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
 
+      - name: Destroy all state
+        run: go run ./cmd/ki-destroy
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+
       - name: Run terraform
         run: |
           terraform init
-          terraform destroy -auto-approve -var-file .tfvars
           terraform apply -auto-approve -var-file .tfvars
 
       - name: Check and destroy
