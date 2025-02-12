@@ -29,6 +29,11 @@ variable "master_type" {
   default = "cx22"
 }
 
+variable "ssh_key_name" {
+  description = "Name of the SSH key to use"
+  default = "nexus"
+}
+
 # Configure the Hetzner Cloud Provider with your token
 provider "hcloud" {
   token = var.hcloud_token
@@ -62,7 +67,7 @@ resource "hcloud_server" "master-node" {
     ip         = "10.0.1.1"
   }
   user_data = file("${path.module}/cloud-init.yaml")
-  ssh_keys = [ "nexus" ]
+  ssh_keys = [ var.ssh_key_name ]
 
   # If we don't specify this, Terraform will create the resources in parallel
   # We want this node to be created after the private network is created
@@ -85,7 +90,7 @@ resource "hcloud_server" "worker-nodes" {
     network_id = hcloud_network.private_network.id
   }
   user_data = file("${path.module}/cloud-init-worker.yaml")
-  ssh_keys = [ "nexus" ]
+  ssh_keys = [ var.ssh_key_name ]
 
   depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master-node]
 }
