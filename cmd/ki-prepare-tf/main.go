@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	_ "embed"
 	"flag"
 	"fmt"
@@ -12,6 +13,17 @@ import (
 	"github.com/go-faster/errors"
 	"gopkg.in/yaml.v3"
 )
+
+func marshal(v interface{}) ([]byte, error) {
+	b := new(bytes.Buffer)
+	b.WriteString("#cloud-config\n")
+	e := yaml.NewEncoder(b)
+	e.SetIndent(2)
+	if err := e.Encode(v); err != nil {
+		return nil, errors.Wrap(err, "encode")
+	}
+	return b.Bytes(), nil
+}
 
 //go:embed main.tf
 var mainTerraform string
@@ -74,21 +86,21 @@ func run() error {
 	fmt.Println("> Generating cloud init script for worker")
 	kiLink := "https://github.com/ernado/ki/releases/download/v0.6.1/ki-linux-amd64.tar.gz"
 	cloudInitWorkerConfig := CloudConfig{
-		Packages: []string{"curl"},
+		Packages: []string{"curl", "wget"},
 		Users: []User{
 			{
 				Name:  "cluster",
 				Sudo:  "ALL=(ALL) NOPASSWD:ALL",
 				Shell: "/bin/bash",
 				SSHAuthorizedKeys: []string{
-					string(hostPublicKey),
+					strings.TrimSpace(string(hostPublicKey)),
 				},
 			},
 		},
 		WriteFiles: []File{
 			{
 				Path:        "/root/.ssh/id_ed25519",
-				Content:     string(workerPrivateKey),
+				Content:     strings.TrimSpace(string(workerPrivateKey)),
 				Permissions: "0600",
 			},
 		},
@@ -99,7 +111,7 @@ func run() error {
 			"ki --install --join",
 		},
 	}
-	cloudInitWorkerData, err := yaml.Marshal(cloudInitWorkerConfig)
+	cloudInitWorkerData, err := marshal(cloudInitWorkerConfig)
 	if err != nil {
 		return errors.Wrap(err, "marshal")
 	}
@@ -109,15 +121,15 @@ func run() error {
 
 	fmt.Println("> Generating cloud init script for control plane")
 	cloudInitControlPlaneConfig := CloudConfig{
-		Packages: []string{"curl"},
+		Packages: []string{"curl", "wget"},
 		Users: []User{
 			{
 				Name:  "cluster",
 				Sudo:  "ALL=(ALL) NOPASSWD:ALL",
 				Shell: "/bin/bash",
 				SSHAuthorizedKeys: []string{
-					string(hostPublicKey),
-					string(workerPublicKey),
+					strings.TrimSpace(string(hostPublicKey)),
+					strings.TrimSpace(string(workerPublicKey)),
 				},
 			},
 		},
@@ -135,7 +147,7 @@ func run() error {
 			"ki --install",
 		},
 	}
-	cloudInitControlPlaneData, err := yaml.Marshal(cloudInitControlPlaneConfig)
+	cloudInitControlPlaneData, err := marshal(cloudInitControlPlaneConfig)
 	if err != nil {
 		return errors.Wrap(err, "marshal")
 	}
