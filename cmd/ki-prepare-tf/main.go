@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	hcl "github.com/alecthomas/hcl/v2"
 	"github.com/go-faster/errors"
 	"gopkg.in/yaml.v3"
 )
@@ -30,8 +31,13 @@ var mainTerraform string
 
 func run() error {
 	var arg struct {
-		Token         string
-		PublicKeyPath string
+		Token                string
+		PublicKeyPath        string
+		WorkerNodeType       string
+		WorkerNodeCount      int
+		SSHKeyName           string
+		ControlPlaneNodeType string
+		Location             string
 	}
 	var defaultPublicKey string
 	if home, err := os.UserHomeDir(); err == nil {
@@ -39,6 +45,11 @@ func run() error {
 	}
 	flag.StringVar(&arg.Token, "token", os.Getenv("HETZNER_TOKEN"), "Hetzner token ($HETZNER_TOKEN)")
 	flag.StringVar(&arg.PublicKeyPath, "pubkey", defaultPublicKey, "Host public key")
+	flag.StringVar(&arg.WorkerNodeType, "worker-type", "cpx11", "Worker node type")
+	flag.IntVar(&arg.WorkerNodeCount, "worker-count", 1, "Worker node count")
+	flag.StringVar(&arg.ControlPlaneNodeType, "control-plane-type", "cpx11", "Control plane node type")
+	flag.StringVar(&arg.Location, "location", "hel1", "Location")
+	flag.StringVar(&arg.SSHKeyName, "ssh-key-name", "ki", "SSH key name")
 	flag.Parse()
 
 	if arg.Token == "" {
@@ -157,12 +168,26 @@ func run() error {
 
 	fmt.Println("> Write .tfvars")
 	{
-		var b strings.Builder
-		b.WriteString(`hcloud_token = "`)
-		b.WriteString(arg.Token)
-		b.WriteRune('"')
-		b.WriteRune('\n')
-		if err := os.WriteFile(".tfvars", []byte(b.String()), 0600); err != nil {
+		type Config struct {
+			Location         string `hcl:"location"`
+			WorkerType       string `hcl:"worker_type"`
+			WorkerCount      int    `hcl:"worker_count"`
+			SSHKeyName       string `hcl:"ssh_key_name"`
+			ControlPlaneType string `hcl:"control_plane_type"`
+			Token            string `hcl:"hcloud_token"`
+		}
+		data, err := hcl.Marshal(&Config{
+			Location:         arg.Location,
+			WorkerType:       arg.WorkerNodeType,
+			WorkerCount:      arg.WorkerNodeCount,
+			ControlPlaneType: arg.ControlPlaneNodeType,
+			SSHKeyName:       arg.SSHKeyName,
+			Token:            arg.Token,
+		})
+		if err != nil {
+			return errors.Wrap(err, "marshal tfvars")
+		}
+		if err := os.WriteFile(".tfvars", data, 0600); err != nil {
 			return errors.Wrap(err, "write tfvars")
 		}
 	}

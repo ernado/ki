@@ -24,19 +24,19 @@ variable "worker_type" {
   default = "cx22"
 }
 
-variable "master_type" {
-  description = "Type of server for the master node"
+variable "control_plane_type" {
+  description = "Type of server for the control plane node"
   default = "cx22"
 }
 
 variable "ssh_key_name" {
   description = "Name of the SSH key to use"
-  default = "nexus"
+  default = "ki"
 }
 
 variable "worker_count" {
   description = "Number of worker nodes to create"
-  default = 3
+  default = 1
 }
 
 # Configure the Hetzner Cloud Provider with your token
@@ -56,10 +56,10 @@ resource "hcloud_network_subnet" "private_network_subnet" {
   ip_range     = "10.0.1.0/24"
 }
 
-resource "hcloud_server" "master-node" {
-  name        = "master-node"
+resource "hcloud_server" "control-plane-node" {
+  name        = "control-plane-node"
   image       = "ubuntu-24.04"
-  server_type = var.master_type
+  server_type = var.control_plane_type
   location    = var.location
   public_net {
     ipv4_enabled = true
@@ -67,8 +67,8 @@ resource "hcloud_server" "master-node" {
   }
   network {
     network_id = hcloud_network.private_network.id
-    # IP Used by the master node, needs to be static
-    # Here the worker nodes will use 10.0.1.1 to communicate with the master node
+    # IP Used by the control plane node, needs to be static
+    # Here the worker nodes will use 10.0.1.1 to communicate with the control plane node
     ip         = "10.0.1.1"
   }
   user_data = file("${path.module}/cloud-init.yaml")
@@ -97,7 +97,7 @@ resource "hcloud_server" "worker-nodes" {
   user_data = file("${path.module}/cloud-init-worker.yaml")
   ssh_keys = [ var.ssh_key_name ]
 
-  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master-node]
+  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.control-plane-node]
 }
 
 resource "hcloud_load_balancer" "load_balancer" {
@@ -105,7 +105,7 @@ resource "hcloud_load_balancer" "load_balancer" {
   load_balancer_type = "lb11"
   location           = var.location
 
-  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.master-node]
+  depends_on = [hcloud_network_subnet.private_network_subnet, hcloud_server.control-plane-node]
 }
 
 

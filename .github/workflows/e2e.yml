@@ -42,7 +42,7 @@ jobs:
         run: ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 
       - name: Prepare terraform
-        run: go run ./cmd/ki-prepare-tf
+        run: go run ./cmd/ki-prepare-tf --worker-count=1 --worker-type=cpx21 --ssh-key-name=nexus
         env:
           HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
 
