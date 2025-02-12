@@ -52,5 +52,5 @@ jobs:
           terraform destroy -auto-approve -var-file .tfvars
           terraform apply -auto-approve -var-file .tfvars
 
-      - name: Cleanup
-        run: terraform destroy -auto-approve -var-file .tfvars
+      - name: Check and destroy
+        run: go run ./cmd/ki-check-tf --cleanup
