@@ -35,6 +35,8 @@ func run() (rerr error) {
 		}()
 	}
 
+	start := time.Now()
+
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("HETZNER_TOKEN")))
 	ctx, cancel := context.WithTimeout(context.Background(), arg.Timeout)
 	defer cancel()
@@ -74,7 +76,7 @@ func run() (rerr error) {
 		}
 		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			fmt.Println("ping succeeded")
+			fmt.Println("ping succeeded", time.Since(start))
 			return nil
 		} else {
 			fmt.Println("ping failed:", resp.Status)
