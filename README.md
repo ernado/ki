@@ -24,27 +24,14 @@ This can be done in Ansible, but I'm doing it myself in Go.
 
 ### Usage
 
-#### Create cluster
-
-```yaml
-runcmd:
-  - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
-  - tar -xvf ki-linux-amd64.tar.gz
-  - mv ki /usr/local/bin/ki
-  - ki --install
-```
-
-Control node should have `10.0.1.1` as internal IP.
-You can specify it by `-control-plane-internal-ip` flag.
-
-#### Join cluster
-
-```yaml
-runcmd:
-  - wget https://github.com/ernado/ki/releases/download/v0.1.1/ki-linux-amd64.tar.gz
-  - tar -xvf ki-linux-amd64.tar.gz
-  - mv ki /usr/local/bin/ki
-  - ki --join --install
+```bash
+go install github.com/ernado/ki/cmd/ki-prepare-tf@latest
+export HETZNER_TOKEN=...
+ki-prepare-tf
+terraform init
+# cat .tfvars
+# Update .tfvars if needed
+terraform apply -tfvars=.tfvars
 ```
 
 ## TODO
