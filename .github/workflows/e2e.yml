@@ -57,6 +57,6 @@ jobs:
           terraform apply -auto-approve -var-file .tfvars
 
       - name: Check and destroy
-        run: go run ./cmd/ki-check-tf --cleanup --timeout 5m
+        run: go run ./cmd/ki-check --cleanup --timeout 5m
         env:
           HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
