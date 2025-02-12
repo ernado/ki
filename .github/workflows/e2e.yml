@@ -45,3 +45,12 @@ jobs:
         run: go run ./cmd/ki-prepare-tf
         env:
           HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+
+      - name: Run terraform
+        run: |
+          terraform init
+          terraform destroy -auto-approve -var-file .tfvars
+          terraform apply -auto-approve -var-file .tfvars
+
+      - name: Cleanup
+        run: terraform destroy -auto-approve -var-file .tfvars
