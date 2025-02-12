@@ -95,7 +95,7 @@ func run() error {
 	}
 
 	fmt.Println("> Generating cloud init script for worker")
-	kiLink := "https://github.com/ernado/ki/releases/download/v0.6.1/ki-linux-amd64.tar.gz"
+	kiLink := "https://github.com/ernado/ki/releases/download/v0.8.0/ki-linux-amd64.tar.gz"
 	cloudInitWorkerConfig := CloudConfig{
 		Packages: []string{"curl", "wget"},
 		Users: []User{
