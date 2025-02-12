@@ -100,7 +100,7 @@ func run() error {
 		WriteFiles: []File{
 			{
 				Path:        "/root/.ssh/id_ed25519",
-				Content:     strings.TrimSpace(string(workerPrivateKey)),
+				Content:     string(workerPrivateKey),
 				Permissions: "0600",
 			},
 		},
