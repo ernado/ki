@@ -7,3 +7,4 @@ Makefile
 dist
 .task
 .github
+httpserver.Dockerfile

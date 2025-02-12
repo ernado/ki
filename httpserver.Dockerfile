@@ -1,12 +1,17 @@
-FROM golang
+FROM golang:1.23-alpine AS build
 
 WORKDIR /app
-COPY . /app
+COPY go.mod go.sum ./
+RUN go mod download
 
-RUN go build -o httpserver ./cmd/httpserver
+COPY . .
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=0 /app/httpserver .
-CMD ["./httpserver"]
+RUN CGO_ENABLED=0 go build -o httpserver ./cmd/httpserver
+
+FROM alpine:edge
+
+WORKDIR /app
+COPY --from=build /app/httpserver .
+RUN apk --no-cache add ca-certificates tzdata
+
+ENTRYPOINT ["/app/httpserver"]
