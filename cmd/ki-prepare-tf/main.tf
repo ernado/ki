@@ -34,6 +34,11 @@ variable "ssh_key_name" {
   default = "nexus"
 }
 
+variable "worker_count" {
+  description = "Number of worker nodes to create"
+  default = 3
+}
+
 # Configure the Hetzner Cloud Provider with your token
 provider "hcloud" {
   token = var.hcloud_token
@@ -75,7 +80,7 @@ resource "hcloud_server" "master-node" {
 }
 
 resource "hcloud_server" "worker-nodes" {
-  count = 1
+  count = var.worker_count
 
   # The name will be worker-node-0, worker-node-1, worker-node-2...
   name        = "worker-node-${count.index}"
