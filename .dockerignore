@@ -1,0 +1,9 @@
+Taskfile.yml
+docker-bake.hcl
+.gitignore
+.golangci.yml
+.goreleaser.yaml
+Makefile
+dist
+.task
+.github

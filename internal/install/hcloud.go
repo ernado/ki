@@ -72,15 +72,6 @@ func HetznerCloudInstall() error {
 	if err := HelmAddRepo("hcloud", "https://charts.hetzner.cloud"); err != nil {
 		return errors.Wrap(err, "helm repo add")
 	}
-	fmt.Println("> Installing Hetzner cloud controller manager")
-	if err := HelmUpgrade(HelmUpgradeOptions{
-		Chart:     "hcloud/hcloud-cloud-controller-manager",
-		Install:   true,
-		Name:      "hccm",
-		Namespace: namespace,
-	}); err != nil {
-		return errors.Wrap(err, "helm upgrade hccm")
-	}
 	fmt.Println("> Installing Hetzner cloud csi driver")
 	if err := HelmUpgrade(HelmUpgradeOptions{
 		Chart:     "hcloud/hcloud-csi",

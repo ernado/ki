@@ -342,6 +342,9 @@ func Run() error {
 	}); err != nil {
 		return errors.Wrap(err, "cilium install")
 	}
+	if err := DefaultIngress(); err != nil {
+		return errors.Wrap(err, "default ingress")
+	}
 	if err := HetznerCloudInstall(); err != nil {
 		return errors.Wrap(err, "hetzner cloud install")
 	}
