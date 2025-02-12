@@ -54,3 +54,5 @@ jobs:
 
       - name: Check and destroy
         run: go run ./cmd/ki-check-tf --cleanup
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
