@@ -14,7 +14,7 @@ This can be done in Ansible, but I'm doing it myself in Go.
 
 - [x] Disable swap
 - [x] Configure kernel modules and parameters
-- [x] Install conteinerd
+- [x] Install containerd
 - [x] Install kubelet, kubeadm, kubectl
 - [x] Install helm, cilium
 - [x] Initialize the cluster
