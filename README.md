@@ -1,6 +1,6 @@
 # ki
 
-WIP: Opinionated Kubernetes Installer for Hetzner Cloud.
+Opinionated Kubernetes Installer for Hetzner Cloud.
 
 This can be done in Ansible, but I'm doing it myself in Go.
 
