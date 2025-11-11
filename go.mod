@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/hcl/v2 v2.3.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/go-faster/errors v0.7.1
-	github.com/hetznercloud/hcloud-go/v2 v2.29.0
+	github.com/hetznercloud/hcloud-go/v2 v2.30.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
