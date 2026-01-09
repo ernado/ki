@@ -3,7 +3,7 @@ module github.com/ernado/ki
 go 1.24.0
 
 require (
-	github.com/alecthomas/hcl/v2 v2.3.0
+	github.com/alecthomas/hcl/v2 v2.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/go-faster/errors v0.7.1
 	github.com/hetznercloud/hcloud-go/v2 v2.34.0
